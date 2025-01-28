@@ -1,0 +1,19 @@
+server:
+  port: 8082
+spring:
+  application:
+    name: Order-Service
+  datasource:
+    url: jdbc:mysql://localhost:3306/Order-Service?createDatabaseIfNotExist=true  # The URL of the MySQL database
+    username: root  # Your MySQL username
+    password: Ashish@12  # Your MySQL password
+    driver-class-name: com.mysql.cj.jdbc.Driver  # MySQL driver class
+  jpa:
+    hibernate:
+      ddl-auto: update  # Automatically update the schema (used during development)
+    show-sql: false
+  kafka:
+    bootstrap-servers: localhost:9092
+message:
+  value: kumar
+
