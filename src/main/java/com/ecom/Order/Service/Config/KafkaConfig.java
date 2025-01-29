@@ -1,20 +1,20 @@
 package com.ecom.Order.Service.Config;
 
 
-import com.ecom.Order.Service.Entity.Order;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.ecom.Order.Service.Deserializer.PaymentUpdateDeserializer;
+import com.ecom.Order.Service.Entity.PaymentUpdate;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
-import org.springframework.kafka.core.KafkaAdmin;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.*;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
@@ -28,7 +28,7 @@ public class KafkaConfig {
     private String boostrapServer;
 
     @Bean
-    public ProducerFactory<String, Object> producerFactory(){
+    public <T> ProducerFactory<String, T> producerFactory(){
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, boostrapServer);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -36,7 +36,7 @@ public class KafkaConfig {
         return new DefaultKafkaProducerFactory<>(configProps);
     }
     @Bean
-    public KafkaTemplate<String, Object> kafkaTemplate(){
+    public <T> KafkaTemplate<String, T> kafkaTemplate(){
         return new KafkaTemplate<>(producerFactory());
     }
 
@@ -46,9 +46,32 @@ public class KafkaConfig {
         configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, boostrapServer);
         return new KafkaAdmin(configs);
     }
+    @Bean
+    public ConsumerFactory<String, PaymentUpdate> consumerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, boostrapServer);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "Group-1");
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, PaymentUpdateDeserializer.class);
+        config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), new PaymentUpdateDeserializer());
+    }
+
+    // we will create all customer for entity....
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, PaymentUpdate> paymentKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, PaymentUpdate> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+        return factory;
+    }
 
     @Bean
-    public NewTopic myTopic(){
-        return new NewTopic("Orders", 3, (short) 1);
+    public NewTopic orderTopic(){
+        return new NewTopic("Orders", 1, (short) 1);
+    }
+    @Bean
+    public NewTopic orderCompleteTopic(){
+        return new NewTopic("OrderComplete", 1, (short) 1);
     }
 }

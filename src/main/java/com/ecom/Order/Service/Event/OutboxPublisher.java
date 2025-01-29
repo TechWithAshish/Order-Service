@@ -1,7 +1,10 @@
 package com.ecom.Order.Service.Event;
 
-import com.ecom.Order.Service.Entity.Outbox;
+import com.ecom.Order.Service.Config.KafkaProducerService;
+import com.ecom.Order.Service.Entity.Order;
+import com.ecom.Order.Service.Entity.OutboxOrder;
 import com.ecom.Order.Service.Repository.OutboxRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -16,21 +19,31 @@ import java.util.List;
 public class OutboxPublisher {
 
     private final OutboxRepository outboxRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaProducerService<Order> orderKafkaProducerService;
+    private final ObjectMapper objectMapper;
     @Autowired
-    public OutboxPublisher(OutboxRepository outboxRepository, KafkaTemplate<String, Object> kafkaTemplate){
+    public OutboxPublisher(OutboxRepository outboxRepository, KafkaProducerService<Order> orderKafkaProducerService, ObjectMapper objectMapper){
         this.outboxRepository = outboxRepository;
-        this.kafkaTemplate = kafkaTemplate;
+        this.orderKafkaProducerService = orderKafkaProducerService;
+        this.objectMapper = objectMapper;
     }
 
     @Scheduled(fixedRate = 5000)
     @Transactional
     public void publishOutboxEvents(){
-        List<Outbox> outboxList = outboxRepository.findAll();
-        for(Outbox outbox : outboxList){
-            log.info("publishing event to kafka for topic {}, and payload {}", outbox.getTopic(), outbox.getPayload());
-            kafkaTemplate.send(outbox.getTopic(), outbox.getPayload());
-            outboxRepository.delete(outbox);
+        List<OutboxOrder> outboxOrderList = outboxRepository.findAll();
+        for(OutboxOrder outboxOrder : outboxOrderList){
+            try{
+                Order order = objectMapper.readValue(outboxOrder.getPayload(), Order.class);
+                log.info("publishing event from publishOutboxEvents to kafka for topic {}, and payload of Order {}", outboxOrder.getTopic(), outboxOrder.getPayload());
+
+                orderKafkaProducerService.sendMessage(outboxOrder.getTopic(), order);
+                outboxRepository.delete(outboxOrder);
+            }
+            catch (Exception e){
+                e.printStackTrace();
+            }
+
         }
     }
 }

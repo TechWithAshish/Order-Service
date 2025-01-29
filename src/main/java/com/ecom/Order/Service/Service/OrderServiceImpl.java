@@ -2,19 +2,18 @@ package com.ecom.Order.Service.Service;
 
 import com.ecom.Order.Service.DTO.OrderDto;
 import com.ecom.Order.Service.Entity.Order;
-import com.ecom.Order.Service.Entity.Outbox;
+import com.ecom.Order.Service.Entity.OutboxOrder;
+import com.ecom.Order.Service.Entity.PaymentUpdate;
 import com.ecom.Order.Service.Repository.OrderRepository;
 import com.ecom.Order.Service.Repository.OutboxRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @Slf4j
@@ -42,13 +41,13 @@ public class OrderServiceImpl implements OrderService{
 
         order = orderRepository.save(order);
         log.info("Order created: {}", order);
-        // we need to put this order in Outbox table for Kafka publishing
+        // we need to put this order in OutboxOrder table for Kafka publishing
         String payload = objectMapper.writeValueAsString(order);
-        Outbox outbox = Outbox.builder()
+        OutboxOrder outboxOrder = OutboxOrder.builder()
                 .topic("Orders")
                 .payload(payload)
                 .build();
-        outboxRepository.save(outbox);
+        outboxRepository.save(outboxOrder);
         return order;
     }
 
@@ -64,5 +63,22 @@ public class OrderServiceImpl implements OrderService{
         List<Order> orderList = orderRepository.findByCustomerId(customerId);
         log.info("Order List based on customerId {}, is: {}", customerId, orderList);
         return orderList;
+    }
+
+    @Override
+    @Transactional
+    public void updateOrderStatus(PaymentUpdate paymentUpdate) throws JsonProcessingException {
+        Order order = orderRepository.findById(paymentUpdate.getOrderId()).orElseThrow(() -> new RuntimeException("No order present"));
+        order.setStatus(paymentUpdate.getStatus());
+        order.setPaymentId(paymentUpdate.getPaymentId());
+        orderRepository.save(order);
+        // let's create outbox for OrderComplete...
+        String payload = objectMapper.writeValueAsString(order);
+        OutboxOrder orderComplete = OutboxOrder
+                .builder()
+                .payload(payload)
+                .topic("OrderComplete") // After payment completion and Order update it will publish order event to topic OrderComplete
+                .build();
+        outboxRepository.save(orderComplete);
     }
 }

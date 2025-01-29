@@ -1,9 +1,6 @@
 package com.ecom.Order.Service.Entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,11 +13,12 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 @Entity
-public class Outbox {
+public class OutboxOrder {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     public int id;
     public String topic;
+    @Lob
     public String payload;
     public LocalDateTime createAt = LocalDateTime.now();
 }

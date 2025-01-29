@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @AllArgsConstructor
-@NoArgsConstructor
 @Data
 @Builder
 @Entity
@@ -21,4 +20,10 @@ public class Order {
     public int productId;
     public int quantity;
     public double price;
+    public String status;
+    public int paymentId;
+
+    public Order(){
+
+    }
 }
